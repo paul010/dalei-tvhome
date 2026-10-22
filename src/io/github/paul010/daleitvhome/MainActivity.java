@@ -34,7 +34,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 
-/** Offline companion UI. No HOME registration, service, storage or network access. */
+/** Companion UI. Optional fixed PNG reader; no HOME, service or storage permissions. */
 public final class MainActivity extends Activity {
     private HomeView home;
     @Override public void onCreate(Bundle state) {
@@ -43,6 +43,9 @@ public final class MainActivity extends Activity {
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         home=new HomeView();setContentView(home);home.requestFocus();
     }
+    @Override protected void onResume(){super.onResume();if(home!=null){home.resumed=true;home.syncDashboard();}}
+    @Override protected void onPause(){if(home!=null){home.resumed=false;home.dashboard.stop();home.rotator.stop();home.previousWallpaper=null;}super.onPause();}
+    @Override protected void onDestroy(){if(home!=null){home.dashboard.close();home.rotator.close();}super.onDestroy();}
     @Override public void onBackPressed() { if(!home.back())finish(); }
     private static final class Entry {
         final String key,label,action;final Intent launch;
@@ -55,8 +58,13 @@ public final class MainActivity extends Activity {
         final TextPaint text=new TextPaint(Paint.ANTI_ALIAS_FLAG);
         final NavigationState nav=new NavigationState(5);
         final List<Entry> entries=new ArrayList<Entry>();
-        final Bitmap wallpaper;
+        Bitmap wallpaper,previousWallpaper;long wallpaperFadeAt;final Paint wallpaperPaint=new Paint();final WallpaperRotator rotator;
         String notice="";
+        Bitmap dashboardImage;long dashboardFetched=0;boolean dashboardFailed=false,resumed=false,dashboardZoom=false;float dashboardPanX=0,dashboardPanY=0;
+        final DashboardClient dashboard;
+        void syncDashboard(){if(resumed&&nav.screen==NavigationState.Screen.WORKBENCH)dashboard.start();else dashboard.stop();if(resumed&&nav.screen==NavigationState.Screen.HOME&&preferences.getBoolean("background-motion",true))rotator.start();else{rotator.stop();previousWallpaper=null;}}
+        String dashboardStatus(){if(dashboard.endpoint==null)return "Codex · 未连接";if(dashboardFailed)return "Codex · 更新失败 / 已过期";if(DashboardPolicy.stale(dashboardFetched,System.currentTimeMillis()))return dashboardImage==null?"Codex · 等待连接":"Codex · 已过期";return "Codex · 看板已连接";}
+
         final android.content.SharedPreferences preferences=getSharedPreferences("home-preferences",MODE_PRIVATE);
         long focusAt=0;
         float downX,downY;
@@ -69,13 +77,21 @@ public final class MainActivity extends Activity {
                 image=BitmapFactory.decodeStream(input,null,options);
             }catch(IOException ignored){/* Optional, ignored local overlay; no external storage read. */}
             wallpaper=image;
+            rotator=new WallpaperRotator(getAssets(),new WallpaperRotator.Listener(){public void image(Bitmap bitmap){previousWallpaper=wallpaper;wallpaper=bitmap;wallpaperFadeAt=SystemClock.uptimeMillis();invalidate();}});
+
+            java.util.Properties config=new java.util.Properties();
+            try(InputStream input=getAssets().open("local-dashboard.properties")){config.load(input);}catch(IOException ignored){}
+            dashboard=new DashboardClient(config.getProperty("url",""),new DashboardClient.Listener(){public void result(Bitmap image,boolean success,long fetched){
+                dashboardFailed=!success;if(success){dashboardImage=image;dashboardFetched=fetched;}invalidate();
+            }});
+
             rebuild();
         }
         void rebuild(){
             entries.clear();
             switch(nav.screen){
                 case HOME:
-                    entry("home","主页","welcome");entry("video","视频 · "+videoLabel(),"media");
+                    entry("home","主页","welcome");entry("video","浏览 YouTube","media");
                     entry("workbench","Codex 工作台","workbench");
                     entry("apps","应用","apps");entry("settings","设置","settings");break;
                 case MEDIA:
@@ -93,6 +109,7 @@ public final class MainActivity extends Activity {
                 case APPS:loadApps();break;
                 case PICK_VIDEO:loadApps();break;
                 case SETTINGS:
+                    entry("motion",preferences.getBoolean("background-motion",true)?"背景轮换 · 开启":"背景轮换 · 静态","motion");
                     entry("choose-video","选择视频入口","pick-video");
                     entry("wallpaper","本地壁纸说明","wallpaper");
                     entry("help","遥控使用说明","help");entry("exit","退出附加桌面","exit");break;
@@ -107,8 +124,8 @@ public final class MainActivity extends Activity {
             setContentDescription(title()+"，"+(entries.isEmpty()?"列表为空":entries.get(nav.index).label)+"，上下选择，确认进入，返回上一级");
             invalidate();
         }
-        void open(NavigationState.Screen screen){nav.open(screen);notice="";rebuild();}
-        boolean back(){if(!nav.back())return false;notice="";rebuild();return true;}
+        void open(NavigationState.Screen screen){nav.open(screen);notice="";rebuild();syncDashboard();}
+        boolean back(){if(!nav.back())return false;notice="";rebuild();syncDashboard();return true;}
         String title(){
             switch(nav.screen){case MEDIA:return "影音时光";case APPS:return "我的应用";
                 case WORKBENCH:return "Codex 工作台";case SETTINGS:return "桌面设置";case PICK_VIDEO:return "选择视频入口";default:return "回家，好好放松。";}
@@ -186,6 +203,7 @@ public final class MainActivity extends Activity {
             else if("dashboard-privacy".equals(e.action))notice="仅计划复用既有脱敏状态；尚未联网。\n不读取凭据、会话存储或终端内容。";
             else if("apps".equals(e.action))open(NavigationState.Screen.APPS);
             else if("settings".equals(e.action))open(NavigationState.Screen.SETTINGS);
+            else if("motion".equals(e.action)){preferences.edit().putBoolean("background-motion",!preferences.getBoolean("background-motion",true)).apply();rebuild();syncDashboard();}
             else if("exit".equals(e.action))finish();
             else if("launch".equals(e.action)){
                 try{
@@ -220,12 +238,31 @@ public final class MainActivity extends Activity {
             label(c,entry.label,x+25,y+47,30,active?Color.WHITE:0xFFD0DCE9,width-50);
             c.restore();
         }
+        void drawWallpaper(Canvas c,Bitmap image,float w,float h,int alpha){
+            float scale=Math.max(w/image.getWidth(),h/image.getHeight());float width=image.getWidth()*scale,height=image.getHeight()*scale;
+            wallpaperPaint.setAlpha(alpha);c.drawBitmap(image,null,new RectF((w-width)/2,(h-height)/2,(w+width)/2,(h+height)/2),wallpaperPaint);wallpaperPaint.setAlpha(255);
+        }
+        void drawDashboard(Canvas c){
+            setContentDescription(dashboardStatus()+"，确认放大或还原，方向键移动，返回主页。数据时间以图片标注为准。");
+            label(c,"‹ 返回主页",96,176,24,0xFFD5E5F4,700);
+            label(c,dashboardStatus(),96,217,28,dashboardFailed?0xFFFFD18A:Color.WHITE,730);
+            String fetched=dashboardFetched>0?new SimpleDateFormat("MM-dd HH:mm:ss",Locale.getDefault()).format(new Date(dashboardFetched)):"尚未成功获取";
+            label(c,"网络获取："+fetched,96,248,21,0xFFE1EDF9,730);
+            label(c,"数据时间以图内标注为准 · 不代表实时额度",96,277,20,0xFFE1EDF9,730);
+            RectF viewport=new RectF(96,300,786,980);paint.setColor(0xD0081728);c.drawRoundRect(viewport,10,10,paint);
+            if(dashboardImage!=null){
+                float scale=Math.min(viewport.width()/dashboardImage.getWidth(),viewport.height()/dashboardImage.getHeight())*(dashboardZoom?2f:1f);
+                float width=dashboardImage.getWidth()*scale,height=dashboardImage.getHeight()*scale;
+                dashboardPanX=Math.max(0,Math.min(dashboardPanX,Math.max(0,width-viewport.width())));dashboardPanY=Math.max(0,Math.min(dashboardPanY,Math.max(0,height-viewport.height())));
+                c.save();c.clipRect(viewport);c.drawBitmap(dashboardImage,null,new RectF(viewport.left-dashboardPanX,viewport.top-dashboardPanY,viewport.left-dashboardPanX+width,viewport.top-dashboardPanY+height),null);c.restore();
+            }else label(c,"暂无成功快照；联网失败会在此明确提示",116,360,24,Color.WHITE,650);
+            label(c,"确认 放大/还原 · 放大后方向键移动 · 返回退出",96,1022,20,0xFFE1EDF9,790);
+        }
         @Override protected void onDraw(Canvas c){
             super.onDraw(c);float w=getWidth(),h=getHeight();
             if(wallpaper!=null){
-                float scale=Math.max(w/wallpaper.getWidth(),h/wallpaper.getHeight());
-                float pw=wallpaper.getWidth()*scale,ph=wallpaper.getHeight()*scale;
-                c.drawBitmap(wallpaper,null,new RectF((w-pw)/2,(h-ph)/2,(w+pw)/2,(h+ph)/2),null);
+                drawWallpaper(c,wallpaper,w,h,255);
+                if(previousWallpaper!=null){float t=Math.min(1f,(SystemClock.uptimeMillis()-wallpaperFadeAt)/600f);if(t<1f){drawWallpaper(c,previousWallpaper,w,h,(int)(255*(1-t)));postInvalidateDelayed(66);}else previousWallpaper=null;}
             }else{
                 paint.setShader(new LinearGradient(0,h,w,0,new int[]{0xFF06101D,0xFF173C58,0xFF416578},null,Shader.TileMode.CLAMP));
                 c.drawRect(0,0,w,h,paint);paint.setShader(null);
@@ -234,17 +271,18 @@ public final class MainActivity extends Activity {
             paint.setShader(new LinearGradient(0,0,1040,0,new int[]{0xE0020B1B,0xB0041426,0x00041426},new float[]{0,.52f,1},Shader.TileMode.CLAMP));
             c.drawRect(0,0,1040,1080,paint);paint.setShader(null);
             label(c,"DaLei TV Home",96,100,26,Color.WHITE,700);
-            label(c,"TV companion · 0.3",96,133,18,0xFFBECCDD,700);
+            label(c,"TV companion · 0.4",96,133,18,0xFFBECCDD,700);
             if(nav.screen==NavigationState.Screen.HOME){
                 paint.setColor(0xB0081728);c.drawRoundRect(new RectF(96,151,786,202),10,10,paint);
-                label(c,"Codex 数据未连接 · 工作台查看详情",116,185,24,0xFFE1EDF9,650);
+                label(c,dashboardStatus(),116,185,24,0xFFE1EDF9,650);
             }
+            if(nav.screen==NavigationState.Screen.WORKBENCH){drawDashboard(c);c.restore();postInvalidateDelayed(1000);return;}
             float top;
             if(nav.screen==NavigationState.Screen.HOME){
                 label(c,"回家，好好放松。",96,242,44,Color.WHITE,700);
                 paint.setColor(0xB0081728);c.drawRoundRect(new RectF(96,270,786,362),12,12,paint);
-                label(c,"热门与新片",120,308,27,Color.WHITE,640);
-                label(c,"尚未接入真实内容源 · 不自动播放",120,340,20,0xFFBECCDD,640);top=390;
+                label(c,"YouTube",120,308,32,Color.WHITE,640);
+                label(c,"浏览视频  →",120,340,21,0xFFBECCDD,640);top=390;
             }else{
                 label(c,"‹ 返回上一级",96,232,24,0xFFD5E5F4,700);
                 label(c,title(),96,305,50,Color.WHITE,700);top=365;
@@ -263,6 +301,13 @@ public final class MainActivity extends Activity {
             c.restore();if(SystemClock.uptimeMillis()-focusAt<160)postInvalidateDelayed(16);else postInvalidateDelayed(30000);
         }
         @Override public boolean onKeyDown(int key,KeyEvent event){
+            rotator.action();
+            if(nav.screen==NavigationState.Screen.WORKBENCH){
+                if(key==KeyEvent.KEYCODE_DPAD_CENTER||key==KeyEvent.KEYCODE_ENTER){if(event.getRepeatCount()==0){dashboardZoom=!dashboardZoom;dashboardPanX=dashboardPanY=0;invalidate();}return true;}
+                if(dashboardZoom&&(key==19||key==20||key==21||key==22)){if(key==19)dashboardPanY-=90;if(key==20)dashboardPanY+=90;if(key==21)dashboardPanX-=90;if(key==22)dashboardPanX+=90;invalidate();return true;}
+                if(key==19||key==20||key==22)return true;
+            }
+
             if(key==KeyEvent.KEYCODE_DPAD_UP||key==KeyEvent.KEYCODE_DPAD_DOWN){nav.move(key==KeyEvent.KEYCODE_DPAD_DOWN?1:-1);changed();return true;}
             if(key==KeyEvent.KEYCODE_DPAD_CENTER||key==KeyEvent.KEYCODE_ENTER||key==KeyEvent.KEYCODE_NUMPAD_ENTER){if(event.getRepeatCount()==0)activate();return true;}
             if(key==KeyEvent.KEYCODE_DPAD_RIGHT&&nav.screen==NavigationState.Screen.HOME){if(event.getRepeatCount()==0)activate();return true;}
@@ -271,8 +316,11 @@ public final class MainActivity extends Activity {
         }
         @Override public boolean onTouchEvent(MotionEvent e){
             float x=e.getX()*1920/getWidth(),y=e.getY()*1080/getHeight();
-            if(e.getAction()==MotionEvent.ACTION_DOWN){downX=x;downY=y;return true;}
+            if(e.getAction()==MotionEvent.ACTION_DOWN){rotator.action();downX=x;downY=y;return true;}
             if(e.getAction()!=MotionEvent.ACTION_UP)return true;
+            if(nav.screen==NavigationState.Screen.WORKBENCH){if(y<200){back();}else if(y>=300&&y<=980){dashboardZoom=!dashboardZoom;dashboardPanX=dashboardPanY=0;invalidate();}return true;}
+
+            if(nav.screen==NavigationState.Screen.HOME&&x>=96&&x<=786&&y>=270&&y<=362){open(NavigationState.Screen.MEDIA);return true;}
             if(nav.screen!=NavigationState.Screen.HOME&&Math.abs(y-downY)>55){nav.move(y<downY?nav.visibleRows:-nav.visibleRows);changed();return true;}
             if(Math.abs(x-downX)>35||Math.abs(y-downY)>35)return true;
             if(nav.screen!=NavigationState.Screen.HOME&&x>=70&&x<=490&&y>=190&&y<=255){back();return true;}

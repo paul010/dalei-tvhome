@@ -19,3 +19,7 @@ local.properties
 __pycache__/
 /assets/local-config.*
 /res/values/local-defaults.xml
+
+/assets/local-dashboard.properties
+
+/assets/wallpaper-*.png
