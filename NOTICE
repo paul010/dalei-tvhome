@@ -1,0 +1,11 @@
+Dalei TV Home is original code, not a fork of FLauncher or guizang-tv.
+Feature research consulted their public behavior/documentation. No source,
+assets, binaries, or licenses from those projects are included here.
+
+The visual direction is an original interpretation of a minimal console-style
+interface. No Sony/PlayStation logos, assets, or official affiliation.
+
+Android framework APIs and build tools are external dependencies. They are not
+distributed in this repository; their own upstream licenses continue to apply.
+Optional user-supplied local wallpapers are not part of this repository or its
+MIT license. Obtain permission for any image you use or redistribute.
