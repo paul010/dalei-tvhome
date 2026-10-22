@@ -40,3 +40,10 @@ python3 verify.py output/dalei-tvhome-0.2.0-unsigned.apk --public
 把有使用权的图片放到 `assets/local-wallpaper.png`，本地重新构建。该文件被Git忽略，但会嵌入自己的APK，勿公开含私人照片的APK。公开版检查 `--public` 会拒绝带图片的产物；检查私人覆盖构建时省略该参数。删除覆盖图片并重建即可恢复程序背景。不读取电视相册或系统壁纸。
 
 源码MIT许可，第三方来源说明见NOTICE。仓库不含私人照片、截图、APK、设备地址、凭据、工具二进制或私人git历史；不配置CI、Pages或二进制Release。
+
+
+## 0.3.1 status
+
+Home, Video, Codex dashboard, Apps and Settings share focus-preserving navigation. Optional SmartTube public Home/Subscriptions/Search components are checked at click time with fallback to the selected main entry. These are external page links, not embedded content. No provider query, automatic playback, voice recording, or network permissions.
+
+CodexBar-style remaining/reset, daily tokens, 30-day tokens/trend and update-time cards explicitly show unconnected. Catalog-price estimates are not subscription bills. No screenshot values are hardcoded. Popular/latest covers and live usage data remain planned, without a verified feed or bridge.

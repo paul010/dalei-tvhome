@@ -19,3 +19,10 @@ or television testing of this public build has been performed. Video shortcut
 selection, actual player launch/return, visual layout and physical remote use
 still require runtime validation. No playback or third-party app was started
 as part of this validation. No player security verdict is implied.
+
+
+## 0.3.1 status
+
+Home, Video, Codex dashboard, Apps and Settings share focus-preserving navigation. Optional SmartTube public Home/Subscriptions/Search components are checked at click time with fallback to the selected main entry. These are external page links, not embedded content. No provider query, automatic playback, voice recording, or network permissions.
+
+CodexBar-style remaining/reset, daily tokens, 30-day tokens/trend and update-time cards explicitly show unconnected. Catalog-price estimates are not subscription bills. No screenshot values are hardcoded. Popular/latest covers and live usage data remain planned, without a verified feed or bridge.

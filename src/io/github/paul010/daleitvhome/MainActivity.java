@@ -68,18 +68,28 @@ public final class MainActivity extends Activity {
                 options.inPreferredConfig=Bitmap.Config.RGB_565;
                 image=BitmapFactory.decodeStream(input,null,options);
             }catch(IOException ignored){/* Optional, ignored local overlay; no external storage read. */}
-            wallpaper=image;rebuild();
+            wallpaper=image;
+            rebuild();
         }
         void rebuild(){
             entries.clear();
             switch(nav.screen){
                 case HOME:
-                    entry("home","首页","welcome");entry("video","视频 · "+videoLabel(),"video");
+                    entry("home","主页","welcome");entry("video","视频 · "+videoLabel(),"media");
+                    entry("workbench","Codex 工作台","workbench");
                     entry("apps","应用","apps");entry("settings","设置","settings");break;
                 case MEDIA:
-                    entry("apps","查看已安装应用","apps");
-                    entry("media-pending","影音分类 · 待支持","pending");
-                    entry("inputs-pending","HDMI / 3D · 待设备适配","pending");break;
+                    entry("open-video","打开 · "+videoLabel(),"video");
+                    entry("video-home","SmartTube 主页","smart-home");
+                    entry("video-subscriptions","SmartTube 订阅","smart-subscriptions");
+                    entry("video-search","SmartTube 搜索","smart-search");
+                    entry("video-help","返回桌面的方法","video-help");break;
+                case WORKBENCH:
+                    entry("weekly","每周剩余 / 重置 · 未接入","dashboard-status");
+                    entry("today","今日 Token · 未接入","dashboard-status");
+                    entry("month","30 天 Token / 趋势 · 未接入","dashboard-status");
+                    entry("updated","更新时间 · 尚未同步","dashboard-status");
+                    entry("estimate","目录价等值 · 非订阅账单","dashboard-estimate");break;
                 case APPS:loadApps();break;
                 case PICK_VIDEO:loadApps();break;
                 case SETTINGS:
@@ -101,7 +111,7 @@ public final class MainActivity extends Activity {
         boolean back(){if(!nav.back())return false;notice="";rebuild();return true;}
         String title(){
             switch(nav.screen){case MEDIA:return "影音时光";case APPS:return "我的应用";
-                case SETTINGS:return "桌面设置";case PICK_VIDEO:return "选择视频入口";default:return "回家，好好放松。";}
+                case WORKBENCH:return "Codex 工作台";case SETTINGS:return "桌面设置";case PICK_VIDEO:return "选择视频入口";default:return "回家，好好放松。";}
         }
         void loadApps(){
             PackageManager pm=getPackageManager();HashSet<String> seen=new HashSet<String>();
@@ -145,16 +155,35 @@ public final class MainActivity extends Activity {
             if(!available(launch)){open(NavigationState.Screen.APPS);notice="原视频入口不可用，请从已安装应用重新选择。";return;}
             try{startActivity(launch);}catch(RuntimeException ex){open(NavigationState.Screen.APPS);notice="视频应用未能打开，请重新选择。";}
         }
+        void openSmartSection(String section){
+            ComponentName selected=ComponentName.unflattenFromString(preferences.getString("video-component",""));
+            if(selected==null||!"org.smarttube.stable".equals(selected.getPackageName())){
+                openVideo();return;
+            }
+            String activity="com.liskovsoft.smartyoutubetv2.tv.launchers."+section+"LauncherActivity";
+            Intent launch=new Intent(Intent.ACTION_MAIN).setComponent(new ComponentName(selected.getPackageName(),activity)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            if(!available(launch)){openVideo();return;}
+            try{startActivity(launch);}catch(RuntimeException ex){openVideo();}
+        }
         void activate(){
             if(entries.isEmpty())return;
             Entry e=entries.get(nav.index);notice="";
             if("video".equals(e.action))openVideo();
+            else if("smart-home".equals(e.action))openSmartSection("Home");
+            else if("smart-subscriptions".equals(e.action))openSmartSection("Subscriptions");
+            else if("smart-search".equals(e.action))openSmartSection("Search");
             else if("pick-video".equals(e.action))open(NavigationState.Screen.PICK_VIDEO);
             else if("pin-video".equals(e.action)){
                 if(!available(e.launch)){rebuild();notice="应用已变化，请重新选择。";}
                 else {preferences.edit().putString("video-component",e.key).apply();back();notice="视频入口已保存；未启动或播放内容。";rebuild();}
             }
             else if("media".equals(e.action))open(NavigationState.Screen.MEDIA);
+            else if("workbench".equals(e.action))open(NavigationState.Screen.WORKBENCH);
+            else if("video-help".equals(e.action))notice="SmartTube：先返回侧栏，再快速返回两次。\n不同页面可能先返回上一级。";
+            else if("video-data".equals(e.action))notice="尚未接入受支持的内容接口。\n此处不显示虚构封面或订阅流。";
+            else if("dashboard-status".equals(e.action))notice="Codex 数据未连接；不使用截图中的静态数值。";
+            else if("dashboard-estimate".equals(e.action))notice="按 Token 与目录价估算，不是实际订阅账单。\n尚未接入，不显示金额。";
+            else if("dashboard-privacy".equals(e.action))notice="仅计划复用既有脱敏状态；尚未联网。\n不读取凭据、会话存储或终端内容。";
             else if("apps".equals(e.action))open(NavigationState.Screen.APPS);
             else if("settings".equals(e.action))open(NavigationState.Screen.SETTINGS);
             else if("exit".equals(e.action))finish();
@@ -204,11 +233,14 @@ public final class MainActivity extends Activity {
             c.save();c.scale(w/1920,h/1080);
             paint.setShader(new LinearGradient(0,0,1040,0,new int[]{0xE0020B1B,0xB0041426,0x00041426},new float[]{0,.52f,1},Shader.TileMode.CLAMP));
             c.drawRect(0,0,1040,1080,paint);paint.setShader(null);
-            label(c,"DALEI TV HOME",96,100,26,Color.WHITE,700);
-            label(c,"离线附加桌面",96,133,18,0xFFBECCDD,700);
+            label(c,"DaLei TV Home",96,100,26,Color.WHITE,700);
+            label(c,"TV companion · 0.3",96,133,18,0xFFBECCDD,700);
             float top;
             if(nav.screen==NavigationState.Screen.HOME){
-                label(c,"回家，",96,280,58,Color.WHITE,700);label(c,"好好放松。",96,355,58,Color.WHITE,700);top=422;
+                label(c,"回家，好好放松。",96,242,44,Color.WHITE,700);
+                paint.setColor(0xB0081728);c.drawRoundRect(new RectF(96,270,786,362),12,12,paint);
+                label(c,"热门与新片",120,308,27,Color.WHITE,640);
+                label(c,"尚未接入真实内容源 · 不自动播放",120,340,20,0xFFBECCDD,640);top=390;
             }else{
                 label(c,"‹ 返回上一级",96,232,24,0xFFD5E5F4,700);
                 label(c,title(),96,305,50,Color.WHITE,700);top=365;
@@ -240,7 +272,7 @@ public final class MainActivity extends Activity {
             if(nav.screen!=NavigationState.Screen.HOME&&Math.abs(y-downY)>55){nav.move(y<downY?nav.visibleRows:-nav.visibleRows);changed();return true;}
             if(Math.abs(x-downX)>35||Math.abs(y-downY)>35)return true;
             if(nav.screen!=NavigationState.Screen.HOME&&x>=70&&x<=490&&y>=190&&y<=255){back();return true;}
-            float top=nav.screen==NavigationState.Screen.HOME?422:365;
+            float top=nav.screen==NavigationState.Screen.HOME?390:365;
             int slot=(int)((y-top)/86),index=nav.first+slot;
             float right=nav.screen==NavigationState.Screen.HOME?498:786;
             if(x>=96&&x<=right&&y>=top&&slot>=0&&slot<nav.visibleRows&&index<entries.size()&&y-top-slot*86<=72){nav.select(index);changed();activate();}

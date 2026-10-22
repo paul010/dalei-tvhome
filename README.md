@@ -51,3 +51,10 @@ Place an image you have rights to use at `assets/local-wallpaper.png`, then buil
 ## Development and publication boundaries
 
 No private photos, screenshots, APKs, device addresses, authentication material, SDK binaries, or private history belong in this repository. Only clean original source and documentation are published. No CI, Pages or binary release is configured. See `PUBLICATION_REVIEW.md` for the initial tracked-file review.
+
+
+## 0.3.1 status
+
+Home, Video, Codex dashboard, Apps and Settings share focus-preserving navigation. Optional SmartTube public Home/Subscriptions/Search components are checked at click time with fallback to the selected main entry. These are external page links, not embedded content. No provider query, automatic playback, voice recording, or network permissions.
+
+CodexBar-style remaining/reset, daily tokens, 30-day tokens/trend and update-time cards explicitly show unconnected. Catalog-price estimates are not subscription bills. No screenshot values are hardcoded. Popular/latest covers and live usage data remain planned, without a verified feed or bridge.

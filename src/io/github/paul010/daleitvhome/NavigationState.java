@@ -7,7 +7,7 @@ import java.util.List;
 
 /** Pure Java navigation logic; contains no device identifiers or Android calls. */
 final class NavigationState {
-    enum Screen { HOME, MEDIA, APPS, SETTINGS, PICK_VIDEO }
+    enum Screen { HOME, MEDIA, WORKBENCH, APPS, SETTINGS, PICK_VIDEO }
     private static final class Frame {
         final Screen screen; final String key; final int index, first;
         Frame(Screen screen, String key, int index, int first) {

@@ -31,6 +31,11 @@ public final class NavigationStateTest {
         check(!n.back(),"home back exits rather than inventing another screen");
         n.open(NavigationState.Screen.APPS);n.setItems(new ArrayList<String>());n.move(-1);n.move(1);
         check(n.index==0 && n.first==0 && n.size()==0,"empty list safe");
+        NavigationState work=new NavigationState(5);
+        work.setItems(Arrays.asList("home","video","workbench","apps","settings"));work.select(2);
+        work.open(NavigationState.Screen.WORKBENCH);work.setItems(Arrays.asList("connection","usage","tasks","privacy"));work.select(2);
+        check(work.back(),"workbench returns");work.setItems(Arrays.asList("home","video","workbench","apps","settings"));
+        check(work.index==2,"workbench parent focus restored");
         System.out.println("PASS: long-list bounds, stable identity, nested return, focus restore, empty state");
     }
 }
