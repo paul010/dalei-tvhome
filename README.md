@@ -18,9 +18,9 @@ The only Android permission is INTERNET for an optional user-configured fixed JS
 
 ## Compatibility and current validation
 
-`minSdkVersion 21`, `targetSdkVersion 28`; package `io.github.paul010.daleitvhome`, version `0.5.0`. This is a sideload-oriented experiment, not a claim of current Play Store compliance.
+`minSdkVersion 21`, `targetSdkVersion 28`; package `io.github.paul010.daleitvhome`, version `0.5.1`. This is a sideload-oriented experiment, not a claim of current Play Store compliance.
 
-Public 0.5.0 is checked by local compilation and static APK checks, plus pure Java navigation tests. It has **not been installed or visually validated on a television**. Earlier private-prototype results do not establish compatibility of this version. Physical remotes, app handoff/return, accessibility screen-reader semantics, unusual aspect ratios and long-term performance require testing. The drawn UI has a selected-item content description, not a complete virtual accessibility tree.
+Public 0.5.1 is checked by local compilation and static APK checks, plus pure Java navigation tests. It has **not been installed or visually validated on a television**. Earlier private-prototype results do not establish compatibility of this version. Physical remotes, app handoff/return, accessibility screen-reader semantics, unusual aspect ratios and long-term performance require testing. The drawn UI has a selected-item content description, not a complete virtual accessibility tree.
 
 HDMI/3D vendor controls, autoplay, embedded feeds, playback control, account access and firmware changes are **not implemented**. No player code or APK is included. A selected player's security, compatibility and license remain separate from this project; no particular player or installed version is endorsed.
 
@@ -39,7 +39,7 @@ export JAVA_HOME=/path/to/jdk
 export ANDROID_HOME=/path/to/android-sdk
 bash test.sh
 bash build.sh
-python3 verify.py output/dalei-tvhome-0.5.0-unsigned.apk --public
+python3 verify.py output/dalei-tvhome-0.5.1-unsigned.apk --public
 ```
 
 The build produces an **unsigned** APK. No key is generated and nothing is installed. Build outputs and signing material are ignored. Sign a reviewed local build with your own key, including **v1 signing for API 21**, before any deliberate sideload. Preserve your system launcher and use Back to exit this app.

@@ -15,7 +15,7 @@
 
 ## 兼容与验证范围
 
-最低 API21，targetSDK28，包名 `io.github.paul010.daleitvhome`，版本0.5.0。本版是面向手动侧载的实验，不宣称符合当前应用商店政策。
+最低 API21，targetSDK28，包名 `io.github.paul010.daleitvhome`，版本0.5.1。本版是面向手动侧载的实验，不宣称符合当前应用商店政策。
 
 公开0.5版仅完成编译、清单/DEX/资源静态检查和纯Java导航测试；没有部署到电视或完成视觉验收。旧私人原型的真机结果不能当作本版验证。实体遥控、第三方应用切换返回、特殊屏幕比例、长期性能和完整读屏可访问性尚待测试。
 
@@ -30,7 +30,7 @@ export JAVA_HOME=/path/to/jdk
 export ANDROID_HOME=/path/to/android-sdk
 bash test.sh
 bash build.sh
-python3 verify.py output/dalei-tvhome-0.5.0-unsigned.apk --public
+python3 verify.py output/dalei-tvhome-0.5.1-unsigned.apk --public
 ```
 
 输出为未签名APK。构建不会生成密钥、安装应用或修改设备。审核后自行签名，API21需保留v1签名，再明确手动侧载；保持原系统桌面，首页按返回可退出。

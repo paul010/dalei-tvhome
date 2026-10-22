@@ -77,7 +77,7 @@ public final class MainActivity extends Activity {
             boolean stale=nativeSnapshot.stale||now-nativeSnapshot.sourceAt>120000||nativeSnapshot.sourceAt>now+60000;
             boolean valid=nativeSnapshot.remaining!=null&&nativeSnapshot.resetAt!=null&&nativeSnapshot.resetAt>now;
             String quota=valid?String.format(Locale.US,"周余 %.0f%%",nativeSnapshot.remaining):"额度待更新";
-            return "Codex · "+(stale?"缓存 · ":"")+quota+" · 采样 "+nativeRenderer.clock(nativeSnapshot.sourceAt);
+            return "Codex · "+(stale?"已过期 · ":"")+quota+" · 采样 "+nativeRenderer.clock(nativeSnapshot.sourceAt);
         }
         HomeView(){
             super(MainActivity.this);setFocusable(true);setFocusableInTouchMode(true);
