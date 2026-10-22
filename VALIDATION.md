@@ -26,3 +26,7 @@ as part of this validation. No player security verdict is implied.
 Home, Video, Codex dashboard, Apps and Settings share focus-preserving navigation. Optional SmartTube public Home/Subscriptions/Search components are checked at click time with fallback to the selected main entry. These are external page links, not embedded content. No provider query, automatic playback, voice recording, or network permissions.
 
 CodexBar-style remaining/reset, daily tokens, 30-day tokens/trend and update-time cards explicitly show unconnected. Catalog-price estimates are not subscription bills. No screenshot values are hardcoded. Popular/latest covers and live usage data remain planned, without a verified feed or bridge.
+
+
+### 0.3.2 navigation clarification
+The standard video entry is preferred; external section links may exit to the system launcher or stay inside the player. No task-flag workaround or guaranteed return is claimed. A home-only Codex unconnected strip links conceptually to the existing workbench; no system overlay or network feed is added. See docs/player-navigation.md for bounded observations.

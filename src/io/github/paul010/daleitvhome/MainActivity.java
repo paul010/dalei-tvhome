@@ -79,10 +79,10 @@ public final class MainActivity extends Activity {
                     entry("workbench","Codex 工作台","workbench");
                     entry("apps","应用","apps");entry("settings","设置","settings");break;
                 case MEDIA:
-                    entry("open-video","打开 · "+videoLabel(),"video");
-                    entry("video-home","SmartTube 主页","smart-home");
-                    entry("video-subscriptions","SmartTube 订阅","smart-subscriptions");
-                    entry("video-search","SmartTube 搜索","smart-search");
+                    entry("open-video","打开 · "+videoLabel()+" · 首选","video");
+                    entry("video-home","SmartTube 主页 · 外部页面","smart-home");
+                    entry("video-subscriptions","SmartTube 订阅 · 外部页面","smart-subscriptions");
+                    entry("video-search","SmartTube 搜索 · 外部页面","smart-search");
                     entry("video-help","返回桌面的方法","video-help");break;
                 case WORKBENCH:
                     entry("weekly","每周剩余 / 重置 · 未接入","dashboard-status");
@@ -179,7 +179,7 @@ public final class MainActivity extends Activity {
             }
             else if("media".equals(e.action))open(NavigationState.Screen.MEDIA);
             else if("workbench".equals(e.action))open(NavigationState.Screen.WORKBENCH);
-            else if("video-help".equals(e.action))notice="SmartTube：先返回侧栏，再快速返回两次。\n不同页面可能先返回上一级。";
+            else if("video-help".equals(e.action))notice="首选标准入口。先返回侧栏，再快速返回两次。\n外部页面可能回到系统桌面；返回路径由播放器决定。";
             else if("video-data".equals(e.action))notice="尚未接入受支持的内容接口。\n此处不显示虚构封面或订阅流。";
             else if("dashboard-status".equals(e.action))notice="Codex 数据未连接；不使用截图中的静态数值。";
             else if("dashboard-estimate".equals(e.action))notice="按 Token 与目录价估算，不是实际订阅账单。\n尚未接入，不显示金额。";
@@ -235,6 +235,10 @@ public final class MainActivity extends Activity {
             c.drawRect(0,0,1040,1080,paint);paint.setShader(null);
             label(c,"DaLei TV Home",96,100,26,Color.WHITE,700);
             label(c,"TV companion · 0.3",96,133,18,0xFFBECCDD,700);
+            if(nav.screen==NavigationState.Screen.HOME){
+                paint.setColor(0xB0081728);c.drawRoundRect(new RectF(96,151,786,202),10,10,paint);
+                label(c,"Codex 数据未连接 · 工作台查看详情",116,185,24,0xFFE1EDF9,650);
+            }
             float top;
             if(nav.screen==NavigationState.Screen.HOME){
                 label(c,"回家，好好放松。",96,242,44,Color.WHITE,700);

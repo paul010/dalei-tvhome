@@ -1,0 +1,9 @@
+# External player navigation
+
+The standard selected main entry is the preferred route. Optional SmartTube public section launchers select a section/search and finish immediately. SmartTube 32.68 declares its launcher, browse and search activities singleInstance, managing separate tasks internally. Our ACTION_MAIN intents use NEW_TASK without CLEAR_TASK/CLEAR_TOP; own Activity has default task affinity. Removing NEW_TASK does not override the target singleInstance contract, so no flag change is claimed as a fix. No default HOME or player setting is changed.
+
+Bounded Android 5 testing: Home launcher reached BrowseActivity and returned to companion; Subscriptions launcher reached BrowseActivity then exited to system launcher; empty Search reached SearchTagsActivity then returned to BrowseActivity. A component observation alone cannot establish the visible subscription contents. Explicit reopening the companion worked for the latter two. Return-to-companion is not guaranteed for external sections. Standard entry previously returned after back-to-sidebar then quick double Back. No automated repeated back loop, warning confirmation, query, playback or account inspection was used.
+
+Sources: SmartTube tag32.68s AndroidManifest.xml, tv/launchers/{Home,Subscriptions,Search}LauncherActivity.java and ui/common/LeanbackActivity.java in the upstream smarttubetv module. These select through internal presenters and finish, rather than supplying a caller return callback.
+
+0.3.2 bounded regression: preferred standard main entry reached BrowseActivity and returned to the companion after sidebar-back plus quick double-back. A subsequent Back exited to the original system screen. This does not establish a universal external-section return contract. Home strip and external-link labels were visually checked on the private build; no private screenshot is included in this repository.
