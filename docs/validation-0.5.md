@@ -1,0 +1,5 @@
+# 0.5 validation
+
+Generic unsigned APK: API21, target28, DEX035 checksums and ZIP CRC pass, no native libraries or image assets, INTERNET only and no HOME filter. Navigation, endpoint policy and memory-transform tests pass. Private customization with the same code was installed on one Android5.0.2/API21 television: native quota, latest dated usage, cumulative usage and 14-date bars rendered from an existing cached source. Today's value stayed missing; no fabricated 30-day total. Private backgrounds/portraits and actual statistics are not included here.
+
+Bounded remote navigation and workbench-to-home focus restoration were checked. Existing source PNG route remained available after the separately authorized private route change. Untrusted Host was rejected. Unit fixtures cover missing cache, true zero, stale source and expired quota. Network outage retention and reset-time rollover have not been fault-injected on hardware. Physical voice, HDMI/3D, long-term performance, other televisions and public generic APK runtime remain unverified.

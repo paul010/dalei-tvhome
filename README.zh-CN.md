@@ -11,13 +11,13 @@
 - 首页提供通用视频快捷入口：用户在本机选择应用，选择只保存偏好，不自动启动或播放。之后手动点击才通过标准 Intent 打开；失效时回退应用列表。
 - 默认使用程序绘制的通用背景，没有私人照片。可在本地构建覆盖壁纸，覆盖文件被 Git 忽略。
 
-仅申请INTERNET以读取用户明确配置的单一看板PNG；不申请外部存储或无障碍权限，无统计上报、后台服务、自启或HOME声明。只在应用私有本地偏好中保存用户选中的视频组件，不上传或同步。
+仅申请INTERNET以读取用户明确配置的单一只读统计JSON；不申请外部存储或无障碍权限，无统计上报、后台服务、自启或HOME声明。只在应用私有本地偏好中保存视频组件、动效偏好和最后成功统计快照，不上传或同步。
 
 ## 兼容与验证范围
 
-最低 API21，targetSDK28，包名 `io.github.paul010.daleitvhome`，版本0.4.1。本版是面向手动侧载的实验，不宣称符合当前应用商店政策。
+最低 API21，targetSDK28，包名 `io.github.paul010.daleitvhome`，版本0.5.0。本版是面向手动侧载的实验，不宣称符合当前应用商店政策。
 
-公开0.4版仅完成编译、清单/DEX/资源静态检查和纯Java导航测试；没有部署到电视或完成视觉验收。旧私人原型的真机结果不能当作本版验证。实体遥控、第三方应用切换返回、特殊屏幕比例、长期性能和完整读屏可访问性尚待测试。
+公开0.5版仅完成编译、清单/DEX/资源静态检查和纯Java导航测试；没有部署到电视或完成视觉验收。旧私人原型的真机结果不能当作本版验证。实体遥控、第三方应用切换返回、特殊屏幕比例、长期性能和完整读屏可访问性尚待测试。
 
 HDMI、3D厂商控制、自动播放、嵌入内容流、账号、播放操作和刷机均未实现。没有包含第三方播放器代码或APK，也不担保用户选中的播放器版本安全。播放器的问题与本桌面分开核验。
 
@@ -30,7 +30,7 @@ export JAVA_HOME=/path/to/jdk
 export ANDROID_HOME=/path/to/android-sdk
 bash test.sh
 bash build.sh
-python3 verify.py output/dalei-tvhome-0.4.1-unsigned.apk --public
+python3 verify.py output/dalei-tvhome-0.5.0-unsigned.apk --public
 ```
 
 输出为未签名APK。构建不会生成密钥、安装应用或修改设备。审核后自行签名，API21需保留v1签名，再明确手动侧载；保持原系统桌面，首页按返回可退出。
@@ -42,15 +42,13 @@ python3 verify.py output/dalei-tvhome-0.4.1-unsigned.apk --public
 源码MIT许可，第三方来源说明见NOTICE。仓库不含私人照片、截图、APK、设备地址、凭据、工具二进制或私人git历史；不配置CI、Pages或二进制Release。
 
 
-## 0.4 fixed dashboard PNG
 
-Optional ignored `assets/local-dashboard.properties` contains `url=` followed by a user-authorized HTTP host on port 8787 with the exact path `/dash.png`. No sample private address is shipped. Missing configuration means no request. No tokens, account credentials, collectors, usage/render endpoints, redirects, query parameters or arbitrary paths. Only the visible/resumed workbench fetches, immediately then every 60 seconds; leaving cancels scheduling and active I/O.
+## 0.5 原生统计
 
-Maximum PNG response 1 MiB, connection/read timeout 4 seconds each and a 12-second total deadline, asynchronous bounded decode (RGB565, sampled long edge at most 1280). Last successful image is retained in memory on error and labeled failed/stale. Retrieval time is NOT the source data time: the full image preserves its own data-time labels. A 120-second retrieval-age threshold does not prove source freshness. The home shows connection state only, never OCR-derived quota numbers. Confirm zooms the full image; arrows pan while zoomed, Back exits. No screenshot or account statistics are committed.
+APK原生绘制额度条、数字和14日期趋势，不嵌入看板截图，也不OCR。私有构建可在被Git忽略的 `assets/local-dashboard.properties` 设置 `jsonUrl=`：仅支持用户批准主机的8787端口和精确 `/api/tv-codex` 路径。公开版没有地址。只在工作台可见且应用在前台时每60秒请求，离开即停止。32KiB上限、禁重定向、连接/读各4秒及12秒总超时。
 
-This is unauthenticated, unencrypted HTTP intended only for an explicitly trusted local network; do not expose the source service publicly. Modern Android cleartext restrictions may require separate supported configuration; API21 is the initial runtime target. No new server, port, token or control channel is created. The YouTube home card is an external browsing entry, not a real video thumbnail or recommendation. Public and private builds remain distinct; public generic build has no configured endpoint or personal wallpaper.
+纯函数 `adapters/memory-snapshot.mjs` 只对白名单内存对象做转换，不采集、不读文件、不执行RPC。部署者必须先授权已有服务的只读路由，以真实socket来源IP和Host限制访问，不采用X-Forwarded-For、不加通配CORS或新监听。IP限制不是身份认证，HTTP未加密。
 
+源采样时间与响应/获取时间分开；超过120秒显示过期，上游事件时效并未独立验证。跨过重置时刻即不再显示有效额度。每日统计日界未知，因此今日保持null；累计明确为累计，14日期趋势不当作30天，缺失不等于零。失败保留上次成功快照并标注。详见 [数据边界](docs/native-codex-memory-plan.md)。
 
-Optional ignored assets `wallpaper-01.png`, `wallpaper-02.png`, etc. enable local home-only rotation every45s,600ms fade capped near15fps. Only current/previous decoded frames are retained, with one bounded background decode. Interaction defers the next change; leaving the home or app stops rotation. Settings can freeze the current background. These are static generated images rotated by the app, not animated people or pet substitutes. No image assets are included in public builds.
-
-Optional SmartTube Home/Subscriptions/empty Search public section launchers use standard ACTION_MAIN with per-click availability checks and main-entry fallback. They are external page links; return behavior belongs to the player and is not guaranteed. See [navigation observations](docs/player-navigation.md).
+私人壁纸 `wallpaper-01.png` 等只在首页轮换，离开暂停，设置可静止；透明 `local-portraits.png` 左右半区分开绘制，每人约画面高度22%，不与背景大人物重复。公开版不含照片、生成图、实际数据或设备地址。

@@ -34,7 +34,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 
-/** Companion UI. Optional fixed PNG reader; no HOME, service or storage permissions. */
+/** Companion UI. Optional fixed statistics reader; no HOME, service or storage permissions. */
 public final class MainActivity extends Activity {
     private HomeView home;
     @Override public void onCreate(Bundle state) {
@@ -44,8 +44,8 @@ public final class MainActivity extends Activity {
         home=new HomeView();setContentView(home);home.requestFocus();
     }
     @Override protected void onResume(){super.onResume();if(home!=null){home.resumed=true;home.syncDashboard();}}
-    @Override protected void onPause(){if(home!=null){home.resumed=false;home.dashboard.stop();home.rotator.stop();home.previousWallpaper=null;}super.onPause();}
-    @Override protected void onDestroy(){if(home!=null){home.dashboard.close();home.rotator.close();}super.onDestroy();}
+    @Override protected void onPause(){if(home!=null){home.resumed=false;home.nativeClient.stop();home.rotator.stop();home.previousWallpaper=null;}super.onPause();}
+    @Override protected void onDestroy(){if(home!=null){home.nativeClient.close();home.rotator.close();}super.onDestroy();}
     @Override public void onBackPressed() { if(!home.back())finish(); }
     private static final class Entry {
         final String key,label,action;final Intent launch;
@@ -60,14 +60,25 @@ public final class MainActivity extends Activity {
         final List<Entry> entries=new ArrayList<Entry>();
         Bitmap wallpaper,previousWallpaper;long wallpaperFadeAt;final Paint wallpaperPaint=new Paint();final WallpaperRotator rotator;
         String notice="";
-        Bitmap dashboardImage;long dashboardFetched=0;boolean dashboardFailed=false,resumed=false,dashboardZoom=false;float dashboardPanX=0,dashboardPanY=0;
-        final DashboardClient dashboard;
-        void syncDashboard(){if(resumed&&nav.screen==NavigationState.Screen.WORKBENCH)dashboard.start();else dashboard.stop();if(resumed&&nav.screen==NavigationState.Screen.HOME&&preferences.getBoolean("background-motion",true))rotator.start();else{rotator.stop();previousWallpaper=null;}}
-        String dashboardStatus(){if(dashboard.endpoint==null)return "Codex · 未连接";if(dashboardFailed)return "Codex · 更新失败 / 已过期";if(DashboardPolicy.stale(dashboardFetched,System.currentTimeMillis()))return dashboardImage==null?"Codex · 等待连接":"Codex · 已过期";return "Codex · 看板已连接";}
-
-        final android.content.SharedPreferences preferences=getSharedPreferences("home-preferences",MODE_PRIVATE);
+        final NativeCodexRenderer nativeRenderer=new NativeCodexRenderer();NativeCodexSnapshot nativeSnapshot=NativeCodexSnapshot.empty();boolean nativeTransportFailed=false;final NativeCodexClient nativeClient;final Bitmap portraitPair;
+        boolean resumed=false;
         long focusAt=0;
         float downX,downY;
+        final android.content.SharedPreferences preferences=getSharedPreferences("home-preferences",MODE_PRIVATE);
+        void syncDashboard(){
+            if(resumed&&nav.screen==NavigationState.Screen.WORKBENCH)nativeClient.start();else nativeClient.stop();
+            if(resumed&&nav.screen==NavigationState.Screen.HOME&&preferences.getBoolean("background-motion",true))rotator.start();
+            else{rotator.stop();previousWallpaper=null;}
+        }
+        String dashboardStatus(){
+            if(nativeTransportFailed)return "Codex · 更新失败，查看详情";
+            if(nativeSnapshot.sourceAt<=0)return "Codex · 等待统计，查看详情";
+            long now=System.currentTimeMillis();
+            boolean stale=nativeSnapshot.stale||now-nativeSnapshot.sourceAt>120000||nativeSnapshot.sourceAt>now+60000;
+            boolean valid=nativeSnapshot.remaining!=null&&nativeSnapshot.resetAt!=null&&nativeSnapshot.resetAt>now;
+            String quota=valid?String.format(Locale.US,"周余 %.0f%%",nativeSnapshot.remaining):"额度待更新";
+            return "Codex · "+(stale?"缓存 · ":"")+quota+" · 采样 "+nativeRenderer.clock(nativeSnapshot.sourceAt);
+        }
         HomeView(){
             super(MainActivity.this);setFocusable(true);setFocusableInTouchMode(true);
             Bitmap image=null;
@@ -81,10 +92,18 @@ public final class MainActivity extends Activity {
 
             java.util.Properties config=new java.util.Properties();
             try(InputStream input=getAssets().open("local-dashboard.properties")){config.load(input);}catch(IOException ignored){}
-            dashboard=new DashboardClient(config.getProperty("url",""),new DashboardClient.Listener(){public void result(Bitmap image,boolean success,long fetched){
-                dashboardFailed=!success;if(success){dashboardImage=image;dashboardFetched=fetched;}invalidate();
+            Bitmap portraits=null;
+            try(InputStream input=getAssets().open("local-portraits.png")){
+                BitmapFactory.Options o=new BitmapFactory.Options();o.inSampleSize=2;o.inPreferredConfig=Bitmap.Config.ARGB_8888;portraits=BitmapFactory.decodeStream(input,null,o);
+            }catch(IOException ignored){}
+            portraitPair=portraits;
+            String saved=preferences.getString("native-codex-cache","");
+            try{if(saved.length()<=32768)nativeSnapshot=NativeCodexSnapshot.parse(new org.json.JSONObject(saved),System.currentTimeMillis());}catch(Exception ignored){}
+            nativeClient=new NativeCodexClient(config.getProperty("jsonUrl",""),new NativeCodexClient.Listener(){public void result(NativeCodexSnapshot snapshot,String json,boolean success){
+                nativeTransportFailed=!success;
+                if(success){nativeSnapshot=snapshot;preferences.edit().putString("native-codex-cache",json).apply();}
+                invalidate();
             }});
-
             rebuild();
         }
         void rebuild(){
@@ -243,20 +262,9 @@ public final class MainActivity extends Activity {
             wallpaperPaint.setAlpha(alpha);c.drawBitmap(image,null,new RectF((w-width)/2,(h-height)/2,(w+width)/2,(h+height)/2),wallpaperPaint);wallpaperPaint.setAlpha(255);
         }
         void drawDashboard(Canvas c){
-            setContentDescription(dashboardStatus()+"，确认放大或还原，方向键移动，返回主页。数据时间以图片标注为准。");
-            label(c,"‹ 返回主页",96,176,24,0xFFD5E5F4,700);
-            label(c,dashboardStatus(),96,217,28,dashboardFailed?0xFFFFD18A:Color.WHITE,730);
-            String fetched=dashboardFetched>0?new SimpleDateFormat("MM-dd HH:mm:ss",Locale.getDefault()).format(new Date(dashboardFetched)):"尚未成功获取";
-            label(c,"网络获取："+fetched,96,248,21,0xFFE1EDF9,730);
-            label(c,"数据时间以图内标注为准 · 不代表实时额度",96,277,20,0xFFE1EDF9,730);
-            RectF viewport=new RectF(96,300,786,980);paint.setColor(0xD0081728);c.drawRoundRect(viewport,10,10,paint);
-            if(dashboardImage!=null){
-                float scale=Math.min(viewport.width()/dashboardImage.getWidth(),viewport.height()/dashboardImage.getHeight())*(dashboardZoom?2f:1f);
-                float width=dashboardImage.getWidth()*scale,height=dashboardImage.getHeight()*scale;
-                dashboardPanX=Math.max(0,Math.min(dashboardPanX,Math.max(0,width-viewport.width())));dashboardPanY=Math.max(0,Math.min(dashboardPanY,Math.max(0,height-viewport.height())));
-                c.save();c.clipRect(viewport);c.drawBitmap(dashboardImage,null,new RectF(viewport.left-dashboardPanX,viewport.top-dashboardPanY,viewport.left-dashboardPanX+width,viewport.top-dashboardPanY+height),null);c.restore();
-            }else label(c,"暂无成功快照；联网失败会在此明确提示",116,360,24,Color.WHITE,650);
-            label(c,"确认 放大/还原 · 放大后方向键移动 · 返回退出",96,1022,20,0xFFE1EDF9,790);
+            setContentDescription("Codex原生统计，返回主页。采样时间不保证上游事件最新。");
+            nativeRenderer.draw(c,nativeSnapshot);
+            if(nativeTransportFailed)label(c,"更新失败 · 保留上次缓存",96,272,23,0xFFFFD18A,730);
         }
         @Override protected void onDraw(Canvas c){
             super.onDraw(c);float w=getWidth(),h=getHeight();
@@ -271,7 +279,12 @@ public final class MainActivity extends Activity {
             paint.setShader(new LinearGradient(0,0,1040,0,new int[]{0xE0020B1B,0xB0041426,0x00041426},new float[]{0,.52f,1},Shader.TileMode.CLAMP));
             c.drawRect(0,0,1040,1080,paint);paint.setShader(null);
             label(c,"DaLei TV Home",96,100,26,Color.WHITE,700);
-            label(c,"TV companion · 0.4",96,133,18,0xFFBECCDD,700);
+            label(c,"TV companion · 0.5",96,133,18,0xFFBECCDD,700);
+            if(portraitPair!=null){
+                int half=portraitPair.getWidth()/2;
+                c.drawBitmap(portraitPair,new android.graphics.Rect(0,0,half,portraitPair.getHeight()),new RectF(1330,770,1570,1010),null);
+                c.drawBitmap(portraitPair,new android.graphics.Rect(half,0,portraitPair.getWidth(),portraitPair.getHeight()),new RectF(1600,770,1840,1010),null);
+            }
             if(nav.screen==NavigationState.Screen.HOME){
                 paint.setColor(0xB0081728);c.drawRoundRect(new RectF(96,151,786,202),10,10,paint);
                 label(c,dashboardStatus(),116,185,24,0xFFE1EDF9,650);
@@ -302,12 +315,7 @@ public final class MainActivity extends Activity {
         }
         @Override public boolean onKeyDown(int key,KeyEvent event){
             rotator.action();
-            if(nav.screen==NavigationState.Screen.WORKBENCH){
-                if(key==KeyEvent.KEYCODE_DPAD_CENTER||key==KeyEvent.KEYCODE_ENTER){if(event.getRepeatCount()==0){dashboardZoom=!dashboardZoom;dashboardPanX=dashboardPanY=0;invalidate();}return true;}
-                if(dashboardZoom&&(key==19||key==20||key==21||key==22)){if(key==19)dashboardPanY-=90;if(key==20)dashboardPanY+=90;if(key==21)dashboardPanX-=90;if(key==22)dashboardPanX+=90;invalidate();return true;}
-                if(key==19||key==20||key==22)return true;
-            }
-
+            if(nav.screen==NavigationState.Screen.WORKBENCH&&(key==19||key==20||key==22||key==23||key==KeyEvent.KEYCODE_ENTER))return true;
             if(key==KeyEvent.KEYCODE_DPAD_UP||key==KeyEvent.KEYCODE_DPAD_DOWN){nav.move(key==KeyEvent.KEYCODE_DPAD_DOWN?1:-1);changed();return true;}
             if(key==KeyEvent.KEYCODE_DPAD_CENTER||key==KeyEvent.KEYCODE_ENTER||key==KeyEvent.KEYCODE_NUMPAD_ENTER){if(event.getRepeatCount()==0)activate();return true;}
             if(key==KeyEvent.KEYCODE_DPAD_RIGHT&&nav.screen==NavigationState.Screen.HOME){if(event.getRepeatCount()==0)activate();return true;}
@@ -318,7 +326,7 @@ public final class MainActivity extends Activity {
             float x=e.getX()*1920/getWidth(),y=e.getY()*1080/getHeight();
             if(e.getAction()==MotionEvent.ACTION_DOWN){rotator.action();downX=x;downY=y;return true;}
             if(e.getAction()!=MotionEvent.ACTION_UP)return true;
-            if(nav.screen==NavigationState.Screen.WORKBENCH){if(y<200){back();}else if(y>=300&&y<=980){dashboardZoom=!dashboardZoom;dashboardPanX=dashboardPanY=0;invalidate();}return true;}
+            if(nav.screen==NavigationState.Screen.WORKBENCH){if(y<200)back();return true;}
 
             if(nav.screen==NavigationState.Screen.HOME&&x>=96&&x<=786&&y>=270&&y<=362){open(NavigationState.Screen.MEDIA);return true;}
             if(nav.screen!=NavigationState.Screen.HOME&&Math.abs(y-downY)>55){nav.move(y<downY?nav.visibleRows:-nav.visibleRows);changed();return true;}

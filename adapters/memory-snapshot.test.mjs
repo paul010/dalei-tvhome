@@ -1,0 +1,9 @@
+import assert from 'node:assert/strict';import {memorySnapshot} from './memory-snapshot.mjs';
+const now=Date.parse('2026-01-20T04:00:00Z');
+const empty=memorySnapshot(null,null,now);assert.equal(empty.status,'unavailable');assert.equal(empty.weekly.remainingPercent,null);assert.equal(empty.tokens.today.value,null);assert.equal(empty.trend.knownDays,0);
+const data={rateLimits:{secondary:{windowDurationMins:10080,usedPercent:25,resetsAt:(now+3600000)/1000}},usage:{summary:{lifetimeTokens:9000},dailyUsageBuckets:[{startDate:'2026-01-19',tokens:123},{startDate:'2026-01-18',tokens:0},{startDate:'2026-02-30',tokens:1000}]},accountEmail:'must-not-leak',token:'must-not-leak'};
+const x=memorySnapshot(data,now-1000,now);assert.equal(x.weekly.remainingPercent,75);assert.equal(x.tokens.lifetime.value,9000);assert.equal(x.tokens.latestDaily.date,'2026-01-19');assert.equal(x.tokens.today.value,null);assert.equal(x.tokens.last30Days.value,null);assert.equal(x.trend.periodDays,14);assert.equal(x.trend.knownDays,2);assert.equal(x.trend.points.at(-1).tokens,null);assert.equal(x.trend.points.at(-3).tokens,0);assert(!JSON.stringify(x).includes('must-not-leak'));
+assert(memorySnapshot(data,now-120001,now).source.stale);assert(memorySnapshot({...data,partial:true},now,now).source.stale);assert.equal(memorySnapshot(data,now+120000,now).status,'unavailable');
+assert.equal(memorySnapshot({...data,rateLimits:{secondary:{windowDurationMins:10080,usedPercent:125,resetsAt:(now+1)/1000}}},now,now).weekly.remainingPercent,null);
+assert.equal(memorySnapshot({...data,rateLimits:{secondary:{windowDurationMins:10080,usedPercent:25,resetsAt:(now-1)/1000}}},now,now).weekly.remainingPercent,null);
+console.log('PASS: whitelist, null vs zero, source age, expired/invalid quota, lifetime vs daily, unknown day timezone,14 vs30');

@@ -16,8 +16,8 @@ mkdir -p "$BUILD/generated" "$BUILD/classes" "$BUILD/dex" "$ROOT/output"
 "$BT/aapt2" compile --dir "$ROOT/res" -o "$BUILD/resources.zip"
 "$BT/aapt2" link -o "$BUILD/resources.ap_" --manifest "$ROOT/AndroidManifest.xml" \
   -I "$ANDROID" --java "$BUILD/generated" --min-sdk-version 21 --target-sdk-version 28 \
-  --version-code 7 --version-name 0.4.1 -A "$ROOT/assets" "$BUILD/resources.zip"
-find "$ROOT/src" "$BUILD/generated" -name '*.java' -print0 | \
+  --version-code 8 --version-name 0.5.0 -A "$ROOT/assets" "$BUILD/resources.zip"
+find "$ROOT/src" "$BUILD/generated" -name '*.java' ! -name '._*' -print0 | \
   xargs -0 "$JAVA_HOME/bin/javac" -encoding UTF-8 -source 8 -target 8 \
   -bootclasspath "$ANDROID" -Xlint:all,-options -d "$BUILD/classes"
 "$JAVA_HOME/bin/jar" cf "$BUILD/classes.jar" -C "$BUILD/classes" .
@@ -28,9 +28,9 @@ p=pathlib.Path(sys.argv[1]);shutil.copyfile(p/'resources.ap_',p/'unaligned-unsig
 with zipfile.ZipFile(p/'unaligned-unsigned.apk','a') as z:
  for dex in sorted((p/'dex').glob('*.dex')):z.write(dex,dex.name,compress_type=zipfile.ZIP_STORED)
 PY
-"$BT/zipalign" -f 4 "$BUILD/unaligned-unsigned.apk" "$ROOT/output/dalei-tvhome-0.4.1-unsigned.apk"
-"$BT/zipalign" -c 4 "$ROOT/output/dalei-tvhome-0.4.1-unsigned.apk"
-"$BT/aapt2" dump badging "$ROOT/output/dalei-tvhome-0.4.1-unsigned.apk" > "$ROOT/output/apk-badging.txt"
-"$BT/aapt2" dump xmltree --file AndroidManifest.xml "$ROOT/output/dalei-tvhome-0.4.1-unsigned.apk" > "$ROOT/output/apk-manifest.txt"
-sha256sum "$ROOT/output/dalei-tvhome-0.4.1-unsigned.apk" > "$ROOT/output/SHA256SUMS"
+"$BT/zipalign" -f 4 "$BUILD/unaligned-unsigned.apk" "$ROOT/output/dalei-tvhome-0.5.0-unsigned.apk"
+"$BT/zipalign" -c 4 "$ROOT/output/dalei-tvhome-0.5.0-unsigned.apk"
+"$BT/aapt2" dump badging "$ROOT/output/dalei-tvhome-0.5.0-unsigned.apk" > "$ROOT/output/apk-badging.txt"
+"$BT/aapt2" dump xmltree --file AndroidManifest.xml "$ROOT/output/dalei-tvhome-0.5.0-unsigned.apk" > "$ROOT/output/apk-manifest.txt"
+sha256sum "$ROOT/output/dalei-tvhome-0.5.0-unsigned.apk" > "$ROOT/output/SHA256SUMS"
 printf '%s\n' 'Unsigned APK built. No keystore created. No device deployment performed.'
